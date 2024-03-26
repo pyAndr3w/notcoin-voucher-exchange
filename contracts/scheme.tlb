@@ -1,0 +1,40 @@
+_ {X:Type} = Maybe X;
+_ {X:Type} {Y:Type} = Either X Y;
+_ = MsgAddress;
+_ = Coins;
+_ {n:#} {X:Type} = HashmapE n X;
+_ = MessageAny;
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+not_inited$0 jetton_root:MsgAddress = Jetton; // ~ 268 bits
+inited$1 jetton_wallet:MsgAddress = Jetton; // ~ 268 bits
+
+_ admin:MsgAddress proposed_admin:MsgAddress
+  Jetton jetton_balance:Coins  // 267*2 + 268 + 124 = 926 + ref
+  ^[ map_100m:(HashmapE 64 Cell)
+     min_idx:uint64 max_idx:uint64 ] // 1 + 64 + 64 = 129 + maybe ref
+  = Storage;
+
+///// USER METHODS /////
+
+// request
+exchange_voucher#5fec6642 idx:uint64 = ForwardPayload;
+
+
+///// ADMIN METHODS /////
+
+// request
+init#5a6e0982 query_id:uint64 = IntMsgBody;
+// request
+deposit_jettons#6d8b6e80 = ForwardPayload;
+// request
+send_message#3df81015 query_id:uint64 message:MessageAny mode:uint8 = InternalMsgBody;
+// request
+change_admin#4e9a134f query_id:uint64 proposed_admin:MsgAddress = InternalMsgBody;
+// request
+claim_admin#56c97402 query_id:uint64 = InternalMsgBody;
+
+///// OTHERS /////
+
+// response
+take_wallet_address#d1735400 query_id:uint64 wallet_address:MsgAddress owner_address:(Maybe ^MsgAddress) = InternalMsgBody;
