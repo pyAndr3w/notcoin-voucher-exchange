@@ -1,4 +1,23 @@
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode } from '@ton/core';
+import {
+    Address,
+    beginCell,
+    Cell,
+    Contract,
+    contractAddress,
+    ContractProvider,
+    MessageRelaxed,
+    Sender,
+    SendMode, storeMessageRelaxed
+} from '@ton/core';
+
+enum OP {
+    init = 0x5a6e0982,
+    deposit_jettons = 0x6d8b6e80,
+    send_message = 0x3df81015,
+    change_admin = 0x4e9a134f,
+    claim_admin = 0x56c97402,
+    exchange_voucher = 0x5fec6642,
+}
 
 export type VoucherExchangeConfig = {
     admin: Address,
@@ -41,7 +60,40 @@ export class VoucherExchange implements Contract {
         await provider.internal(via, {
             value,
             sendMode: SendMode.PAY_GAS_SEPARATELY,
-            body: beginCell().endCell(),
+            body: VoucherExchange.initMessage(0n),
         });
+    }
+
+    static initMessage(queryId: bigint) {
+        return beginCell().storeUint(OP.init, 32).storeUint(queryId, 64).endCell();
+    }
+
+    static depositJettonsMessage() {
+        return beginCell().storeUint(OP.deposit_jettons, 32).endCell();
+    }
+
+    static sendMessage(queryId: bigint, message: MessageRelaxed | Cell, mode: number) {
+        let messageCell: Cell;
+
+        if (message instanceof Cell) {
+            messageCell = message
+        } else {
+            const messageBuilder = beginCell();
+            messageBuilder.store(storeMessageRelaxed(message))
+            messageCell = messageBuilder.endCell();
+        }
+        return beginCell().storeUint(OP.send_message, 32).storeUint(queryId, 64).storeRef(messageCell).storeUint(mode, 8).endCell();
+    }
+
+    static changeAdminMessage(queryId: bigint, proposedAdmin: Address | null) {
+        return beginCell().storeUint(OP.change_admin, 32).storeUint(queryId, 64).storeAddress(proposedAdmin).endCell();
+    }
+
+    static claimAdminMessage(queryId: bigint) {
+        return beginCell().storeUint(OP.claim_admin, 32).storeUint(queryId, 64).endCell();
+    }
+
+    static exchangeVoucherMessage(voucherIdx: bigint) {
+        beginCell().storeUint(OP.exchange_voucher, 32).storeUint(voucherIdx, 64).endCell();
     }
 }
