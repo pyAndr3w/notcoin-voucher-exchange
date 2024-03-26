@@ -357,4 +357,6 @@ slice calc_nft_address(int idx) inline {
     send_raw_message(message.end_cell(), sendmode::CARRY_ALL_REMAINING_MESSAGE_VALUE | sendmode::IGNORE_ERRORS);
     return ();
   }
+
+  throw(0xffff);
 }
