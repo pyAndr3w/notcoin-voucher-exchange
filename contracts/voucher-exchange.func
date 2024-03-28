@@ -266,10 +266,10 @@ slice calc_nft_address(int idx) inline {
     int either_forward_payload = in_msg_body~load_bool();
     slice forward_payload = either_forward_payload ? in_msg_body~load_ref().begin_parse() : in_msg_body;
 
-    if ((forward_payload.slice_bits() != (32)) |
-        (msg_value < gas::deposit_jettons) |
-        (~ data::jetton_init?) |
-        (~ equal_slice_bits(sender, data::jetton_wallet))) { ;; TODO fix gas
+    ifnot ((forward_payload.slice_bits() == (32)) &
+        (msg_value >= gas::deposit_jettons) &
+        (data::jetton_init?) &
+        (equal_slice_bits(sender, data::jetton_wallet))) { ;; TODO fix gas
       send_jettons(jetton_sender, jetton_value, sender);
       return ();
     }
