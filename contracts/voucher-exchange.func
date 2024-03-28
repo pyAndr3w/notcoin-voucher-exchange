@@ -215,6 +215,7 @@ slice calc_nft_address(int idx) inline {
 
     if ((forward_payload.slice_bits() != (32 + 64)) | (msg_value < gas::exchange_voucher) | (~ data::jetton_init?)) { ;; TODO fix gas
       send_nft(nft_sender, sender);
+      return ();
     }
 
     int inner_op = forward_payload~load_op();
@@ -270,15 +271,17 @@ slice calc_nft_address(int idx) inline {
         (~ data::jetton_init?) |
         (~ equal_slice_bits(sender, data::jetton_wallet))) { ;; TODO fix gas
       send_jettons(jetton_sender, jetton_value, sender);
+      return ();
     }
 
-    int inner_op = forward_payload.preload_uint(64);
+    int inner_op = forward_payload~load_op();
 
     if (inner_op == op::deposit_jetton) {
       data::jetton_balance += jetton_value;
       send_excesses(jetton_sender);
     } else {
       send_jettons(jetton_sender, jetton_value, sender);
+      return ();
     }
 
     save_data();
