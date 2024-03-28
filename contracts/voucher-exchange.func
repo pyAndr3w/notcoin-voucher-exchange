@@ -61,7 +61,6 @@ global slice data::proposed_admin;
 global int   data::jetton_init?;
 global slice data::jetton_wallet;
 global int   data::jetton_balance;
-global cell  data::map_100m;
 global int   data::min_idx;
 global int   data::max_idx;
 
@@ -72,11 +71,10 @@ global int   data::max_idx;
        jetton_balance, ds2) = (ds~load_msg_addr(), ds~load_msg_addr(),
                                ds~load_bool(), ds~load_msg_addr(),
                                ds~load_coins(), ds.preload_ref().begin_parse());
-  var (map_100m, min_idx, max_idx) = (ds2~load_dict(), ds2~load_uint(64), ds2.preload_uint(64));
+  var (min_idx, max_idx) = (ds2~load_uint(64), ds2.preload_uint(64));
 
   data::max_idx = max_idx;
   data::min_idx = min_idx;
-  data::map_100m = map_100m;
   data::jetton_balance = jetton_balance;
   data::jetton_wallet = jetton_wallet;
   data::jetton_init? = jetton_init?;
@@ -92,7 +90,6 @@ global int   data::max_idx;
           .store_slice(data::jetton_wallet)
           .store_coins(data::jetton_balance)
           .store_ref(begin_cell()
-                    .store_dict(data::map_100m)
                     .store_uint(data::min_idx, 64)
                     .store_uint(data::max_idx, 64)
                     .end_cell())
@@ -200,7 +197,7 @@ slice calc_nft_address(int idx) inline {
     return ();
   }
 
-  throw_unless(error::wrong_workchain, sender.basechain_addr?());
+  throw_unless(error::wrong_workchain, sender.validate_addr_bc());
 
   load_data();
 
@@ -228,10 +225,18 @@ slice calc_nft_address(int idx) inline {
     int right_op?    = inner_op == op::exchange_voucher;
     int right_addr?  = equal_slice_bits(calc_nft_address(nft_idx), sender);
     int right_range? = nft_idx == min(data::max_idx, max(nft_idx, data::min_idx));
+    int right_shard? = sender.slice_check_prefix(my_address().preload_bits(2 + 1 + 8 + 4)); ;; constructor + anycast + workchain + part of hash
 
-    if (right_op? & right_addr? & right_range?) {
-      var (_, f) = data::map_100m.udict_get?(64, nft_idx);
-      int reward = f ? 100m : 10m;
+    if (right_op? & right_addr? & right_range? & right_shard?) {
+      int reward = 10m;
+      if (nft_idx < 5000) {
+        if ((nft_idx == 2) | (nft_idx == 263) | (nft_idx == 324) | (nft_idx == 496) | ((nft_idx >= 1038) & (nft_idx <= 1042)) |
+            (nft_idx == 1717) | (nft_idx == 2211) | (nft_idx == 2317) | (nft_idx == 2747) | (nft_idx == 2876) | (nft_idx == 3222) |
+            (nft_idx == 3474) | (nft_idx == 3475) | (nft_idx == 3476) | (nft_idx == 3681) | (nft_idx == 3832) | (nft_idx == 3833) |
+            (nft_idx == 4030) | ((nft_idx >= 4986) & (nft_idx <= 4990)) | (nft_idx == 4995) | (nft_idx == 4996) | (nft_idx == 4997)) {
+            reward = 100m;
+        }
+      }
 
       if (data::jetton_balance >= reward) {
         burn_nft(sender);
