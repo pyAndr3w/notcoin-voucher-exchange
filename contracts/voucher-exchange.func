@@ -201,7 +201,8 @@ slice calc_nft_address(int idx) inline {
 
   load_data();
 
-  var (op, query_id) = in_msg_body~load_op_and_query_id();
+  int op = in_msg_body~load_op();
+  int query_id = in_msg_body~load_query_id();
 
   if (op == op::ownership_assigned) {
     {- TEP-62
