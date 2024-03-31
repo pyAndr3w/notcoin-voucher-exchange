@@ -22,6 +22,8 @@ const slice collection_address = "EQDmkj65Ab_m0aZaW8IpKw4kYqIgITw_HRstYEkVQ6NIYC
 const slice burn_address = "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ"a;
 const int burn_fee = 100000000;
 
+const ZERO_COINS_SIZE = 4;
+
 const int 10m = 10000000;
 const int 100m = 100000000;
 
@@ -104,7 +106,7 @@ global int   data::max_idx;
   builder message = begin_cell()
                    .store_msg_flags_non_bounceable()
                    .store_slice(dest)
-                   .store_zeroes(4 + MSG_ONLY_BODY_SIZE)
+                   .store_zeroes(ZERO_COINS_SIZE + MSG_ONLY_BODY_SIZE)
                    .store_op(op::excesses)
                    .store_query_id(query_id);
   send_raw_message(message.end_cell(), sendmode::CARRY_ALL_REMAINING_MESSAGE_VALUE | sendmode::IGNORE_ERRORS);
@@ -127,7 +129,7 @@ slice calc_nft_address(int idx) inline {
     builder message = begin_cell()
                    .store_msg_flags_bounceable()
                    .store_slice(nft_item)
-                   .store_uint(MSG_BODY_IN_REF, 4 + MSG_ONLY_BODY_SIZE)
+                   .store_uint(MSG_BODY_IN_REF, ZERO_COINS_SIZE + MSG_ONLY_BODY_SIZE)
                    .store_ref(begin_cell()
                              .store_op(op::nft_transfer)
                              .store_query_id(query_id)
@@ -150,7 +152,7 @@ slice calc_nft_address(int idx) inline {
   builder message = begin_cell()
                    .store_msg_flags_bounceable()
                    .store_slice(jetton_wallet)
-                   .store_uint(MSG_BODY_IN_REF, 4 + MSG_ONLY_BODY_SIZE)
+                   .store_uint(MSG_BODY_IN_REF, ZERO_COINS_SIZE + MSG_ONLY_BODY_SIZE)
                    .store_ref(begin_cell()
                              .store_op(op::jetton_transfer)
                              .store_query_id(query_id)
@@ -358,7 +360,7 @@ slice calc_nft_address(int idx) inline {
     builder message = begin_cell()
                    .store_msg_flags_non_bounceable()
                    .store_slice(data::jetton_wallet) ;; jetton root at the moment
-                   .store_zeroes(MSG_ONLY_BODY_SIZE)
+                   .store_zeroes(ZERO_COINS_SIZE + MSG_ONLY_BODY_SIZE)
                    .store_op(op::provide_wallet_address)
                    .store_query_id(query_id)
                    .store_slice(my_address())
