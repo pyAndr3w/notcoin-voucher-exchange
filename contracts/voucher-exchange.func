@@ -371,3 +371,10 @@ slice calc_nft_address(int idx) inline {
 
   throw(0xffff);
 }
+
+
+(slice, slice, int, slice, int, int, int) get_exchange_data() method_id {
+  load_data();
+  return (data::admin, data::proposed_admin, data::jetton_init?, data::jetton_wallet, data::jetton_balance, data::min_idx, data::max_idx);
+}
+
