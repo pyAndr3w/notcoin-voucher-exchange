@@ -266,7 +266,7 @@ slice calc_nft_address(int idx) inline {
                                      sender:MsgAddress forward_payload:(Either Cell ^Cell)
                                      = InternalMsgBody;
     -}
-    int jetton_value = in_msg_body~load_varint16();
+    int jetton_value = in_msg_body~load_varuint16();
     slice jetton_sender = in_msg_body~load_msg_addr();
     int either_forward_payload = in_msg_body~load_bool();
     slice forward_payload = either_forward_payload ? in_msg_body~load_ref().begin_parse() : in_msg_body;
