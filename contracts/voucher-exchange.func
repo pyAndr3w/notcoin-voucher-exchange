@@ -103,13 +103,15 @@ global int   data::max_idx;
 ;; =============================================================================================
 
 () send_excesses(slice dest) impure inline {
-  builder message = begin_cell()
-                   .store_msg_flags_non_bounceable()
-                   .store_slice(dest)
-                   .store_zeroes(ZERO_COINS_SIZE + MSG_ONLY_BODY_SIZE)
-                   .store_op(op::excesses)
-                   .store_query_id(query_id);
-  send_raw_message(message.end_cell(), sendmode::CARRY_ALL_REMAINING_MESSAGE_VALUE | sendmode::IGNORE_ERRORS);
+  ifnot (equal_slice_bits(dest, addr_none)) {
+    builder message = begin_cell()
+                     .store_msg_flags_non_bounceable()
+                     .store_slice(dest)
+                     .store_zeroes(ZERO_COINS_SIZE + MSG_ONLY_BODY_SIZE)
+                     .store_op(op::excesses)
+                     .store_query_id(query_id);
+    send_raw_message(message.end_cell(), sendmode::CARRY_ALL_REMAINING_MESSAGE_VALUE | sendmode::IGNORE_ERRORS);
+  }
 }
 
 slice calc_nft_address(int idx) inline {
@@ -136,7 +138,7 @@ slice calc_nft_address(int idx) inline {
                              .store_slice(dest)
                              .store_slice(dest)
                              .store_maybe_ref(null())
-                             .store_varint16(1)
+                             .store_varuint16(1)
                              .store_false()
                              .end_cell());
   send_raw_message(message.end_cell(), sendmode::CARRY_ALL_REMAINING_MESSAGE_VALUE | sendmode::BOUNCE_ON_ACTION_FAIL);
@@ -156,11 +158,11 @@ slice calc_nft_address(int idx) inline {
                    .store_ref(begin_cell()
                              .store_op(op::jetton_transfer)
                              .store_query_id(query_id)
-                             .store_varint16(amount)
+                             .store_varuint16(amount)
                              .store_slice(dest)
                              .store_slice(dest)
                              .store_maybe_ref(null())
-                             .store_varint16(1)
+                             .store_varuint16(1)
                              .store_false()
                              .end_cell());
   send_raw_message(message.end_cell(), sendmode::CARRY_ALL_REMAINING_MESSAGE_VALUE | sendmode::BOUNCE_ON_ACTION_FAIL);
@@ -178,7 +180,7 @@ slice calc_nft_address(int idx) inline {
                            .store_query_id(query_id)
                            .store_slice(burn_address)
                            .store_maybe_ref(null())
-                           .store_varint16(0)
+                           .store_varuint16(0)
                            .store_false()
                            .end_cell());
   send_raw_message(message.end_cell(), sendmode::REGULAR);
