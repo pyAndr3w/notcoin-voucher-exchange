@@ -10,7 +10,7 @@ import {
     SendMode, storeMessageRelaxed
 } from '@ton/core';
 
-enum OP {
+export enum OP {
     init = 0x5a6e0982,
     deposit_jettons = 0x6d8b6e80,
     send_message = 0x3df81015,
@@ -22,7 +22,6 @@ enum OP {
 export type VoucherExchangeConfig = {
     admin: Address,
     jettonRoot: Address,
-    map100m: Cell,
     minIdx: bigint,
     maxIdx: bigint
 };
@@ -31,12 +30,10 @@ export function voucherExchangeConfigToCell(config: VoucherExchangeConfig): Cell
     return beginCell()
           .storeAddress(config.admin)
           .storeAddress(null)
-          .storeUint(0, 1)
+          .storeBit(false)
           .storeAddress(config.jettonRoot)
           .storeCoins(0)
           .storeRef(beginCell()
-                   .storeUint(1,1)
-                   .storeRef(config.map100m)
                    .storeUint(config.minIdx, 64)
                    .storeUint(config.maxIdx, 64)
                    .endCell())
@@ -71,7 +68,6 @@ export class VoucherExchange implements Contract {
     static depositJettonsMessage() {
         return beginCell().storeUint(OP.deposit_jettons, 32).endCell();
     }
-
     static sendMessage(queryId: bigint, message: MessageRelaxed | Cell, mode: number) {
         let messageCell: Cell;
 
@@ -94,6 +90,29 @@ export class VoucherExchange implements Contract {
     }
 
     static exchangeVoucherMessage(voucherIdx: bigint) {
-        beginCell().storeUint(OP.exchange_voucher, 32).storeUint(voucherIdx, 64).endCell();
+        return beginCell().storeUint(OP.exchange_voucher, 32).storeUint(voucherIdx, 64).endCell();
+    }
+
+    async getExchangeData(provider: ContractProvider) {
+        const { stack } = await provider.get('get_exchange_data', []);
+        const admin = stack.readAddress();
+        const proposedAdmin = stack.readAddressOpt();
+        const isInited = stack.readBoolean();
+        if(!isInited) {
+            throw new Error("Voucher exchange contract is not inited!");
+        }
+        return {
+            admin,
+            proposedAdmin,
+            inited: isInited,
+            wallet: stack.readAddress(),
+            balance: stack.readBigNumber(),
+            min_idx: stack.readBigNumber(),
+            max_idx: stack.readBigNumber()
+        }
+    }
+    async getExchangeFee(provider: ContractProvider) {
+        const { stack } = await provider.get('get_exchange_fee', []);
+        return stack.readBigNumber();
     }
 }
