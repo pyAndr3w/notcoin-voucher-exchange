@@ -1,0 +1,46 @@
+int get_compute_fee(int workchain, int gas_used) asm(gas_used workchain) "GETGASFEE";
+int get_forward_fee(int workchain, int bits, int cells) asm(cells bits workchain) "GETFORWARDFEE";
+
+
+
+const MIN_STORAGE_DURATION = 5 * 365 * 24 * 3600; ;; 5 years
+
+const int MY_WORKCHAIN        = 0;
+const int ACCEPT_JETTON_GAS   = 6061;
+const int ACCEPT_NFT_GAS      = 12468;
+const int JETTON_TRANSFER_GAS = 10093;
+const int JETTON_RECEIVE_GAS  = 10648;
+
+const int JETTON_TRANSFER_CELLS = 1;
+const int JETTON_TRANSFER_BITS  = 680;
+
+const JETTON_WALLET_INITSTATE_BITS  = 931;
+const JETTON_WALLET_INITSTATE_CELLS = 3;
+
+const JETTON_WALLET_BITS  = 1033;
+const JETTON_WALLET_CELLS = 3;
+
+
+(int) accept_jettons_fee() inline {
+    return get_compute_fee(0, ACCEPT_JETTON_GAS);
+}
+
+int calculate_jetton_wallet_min_storage_fee() inline {
+    return get_storage_fee(MY_WORKCHAIN, MIN_STORAGE_DURATION, JETTON_WALLET_BITS, JETTON_WALLET_CELLS);
+}
+
+int forward_init_state_overhead() inline {
+    return get_simple_forward_fee(MY_WORKCHAIN, JETTON_WALLET_INITSTATE_BITS, JETTON_WALLET_INITSTATE_CELLS);
+}
+
+(int) exchange_voucher_fee() inline {
+    int fwd_fee = get_forward_fee(MY_WORKCHAIN, JETTON_TRANSFER_BITS, JETTON_TRANSFER_CELLS);
+    return get_compute_fee(MY_WORKCHAIN, ACCEPT_NFT_GAS) +
+           get_compute_fee(MY_WORKCHAIN, JETTON_TRANSFER_GAS) +
+           get_compute_fee(MY_WORKCHAIN, JETTON_RECEIVE_GAS) +
+           ;; transfer + transfer_internal + transfer_notification
+           ;; Maybe ditch transfer notification?
+           fwd_fee * 3 + forward_init_state_overhead() +
+           calculate_jetton_wallet_min_storage_fee() + 2;
+
+}

@@ -1,4 +1,5 @@
 #include "imports/stdlib.fc";
+#include "gas.fc";
 
 cell nft_code() asm """
 "te6ccuECDQEAAdAAABoAJAAuADwARgBQATABRgJCArgDPgN+A6ABFP8A9KQT9LzyyAsBAgFiAgMCAs4EBQAJoR+f4AUCASAGBwIBIAsMAtcMiHHAJJfA+DQ0wMBcbCSXwPg+kD6QDH6ADFx1yH6ADH6ADDwAgSzjhQwbCI0UjLHBfLhlQH6QNQwECPwA+AG0x/TP4IQX8w9FFIwuo6HMhA3XjJAE+AwNDQ1NYIQL8smohK64wJfBIQP8vCAICQARPpEMHC68uFNgAfZRNccF8uGR+kAh8AH6QNIAMfoAggr68IAboSGUUxWgod4i1wsBwwAgkgahkTbiIML/8uGSIY4+ghAFE42RyFAJzxZQC88WcSRJFFRGoHCAEMjLBVAHzxZQBfoCFctqEssfyz8ibrOUWM8XAZEy4gHJAfsAEEeUECo3W+IKAHJwghCLdxc1BcjL/1AEzxYQJIBAcIAQyMsFUAfPFlAF+gIVy2oSyx/LPyJus5RYzxcBkTLiAckB+wAAggKONSbwAYIQ1TJ22xA3RABtcXCAEMjLBVAHzxZQBfoCFctqEssfyz8ibrOUWM8XAZEy4gHJAfsAkzAyNOJVAvADADs7UTQ0z/6QCDXScIAmn8B+kDUMBAkECPgMHBZbW2AAHQDyMs/WM8WAc8WzMntVIE7pcZM="
@@ -27,8 +28,8 @@ const ZERO_COINS_SIZE = 4;
 const int 10m = 10000000;
 const int 100m = 100000000;
 
-const int gas::exchange_voucher = 100000000;
-const int gas::deposit_jettons = 25000000;
+;; const int gas::exchange_voucher = 100000000;
+;; const int gas::deposit_jettons = 25000000;
 
 const int op::init = 0x5a6e0982;
 const int op::deposit_jetton = 0x6d8b6e80;
@@ -218,7 +219,7 @@ slice calc_nft_address(int idx) inline {
     int either_forward_payload = in_msg_body~load_bool();
     slice forward_payload = either_forward_payload ? in_msg_body~load_ref().begin_parse() : in_msg_body;
 
-    if ((forward_payload.slice_bits() != (32 + 64)) | (msg_value < gas::exchange_voucher) | (~ data::jetton_init?)) { ;; TODO fix gas
+    if ((forward_payload.slice_bits() != (32 + 64)) | (msg_value < exchange_voucher_fee()) | (~ data::jetton_init?)) { ;; TODO fix gas
       send_nft(nft_sender, sender);
       return ();
     }
@@ -272,7 +273,7 @@ slice calc_nft_address(int idx) inline {
     slice forward_payload = either_forward_payload ? in_msg_body~load_ref().begin_parse() : in_msg_body;
 
     ifnot ((forward_payload.slice_bits() == (32)) &
-        (msg_value >= gas::deposit_jettons) &
+        (msg_value >= accept_jettons_fee()) &
         (data::jetton_init?) &
         (equal_slice_bits(sender, data::jetton_wallet))) { ;; TODO fix gas
       send_jettons(jetton_sender, jetton_value, sender);
