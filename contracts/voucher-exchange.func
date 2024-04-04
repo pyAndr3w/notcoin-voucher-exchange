@@ -381,3 +381,6 @@ slice calc_nft_address(int idx) inline {
   return (data::admin, data::proposed_admin, data::jetton_init?, data::jetton_wallet, data::jetton_balance, data::min_idx, data::max_idx);
 }
 
+(int) get_exchange_fee() method_id {
+    return exchange_voucher_fee();
+}
