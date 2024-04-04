@@ -52,7 +52,7 @@ const int op::jetton_transfer = 0xf8a7ea5;
 ;; ========================================-Globals-============================================
 ;; =============================================================================================
 
-global int   fwd_fee;
+;; global int   fwd_fee;
 global slice sender;
 global int   query_id;
 
@@ -194,7 +194,7 @@ slice calc_nft_address(int idx) inline {
 
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
   var (flags, sender_from_msg, fwd_fee_from_msg) = parse_message(in_msg_full);
-  fwd_fee = get_original_fwd_fee(BASECHAIN, fwd_fee_from_msg);
+  ;; fwd_fee = get_original_fwd_fee(BASECHAIN, fwd_fee_from_msg);
   sender = sender_from_msg;
 
   if (flags.bounced?()) {
