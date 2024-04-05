@@ -179,6 +179,7 @@ slice calc_nft_address(int idx) inline {
                            .store_op(op::nft_transfer)
                            .store_query_id(query_id)
                            .store_slice(burn_address)
+                           .store_slice(addr_none)
                            .store_maybe_ref(null())
                            .store_varuint16(0)
                            .store_false()
@@ -245,7 +246,7 @@ slice calc_nft_address(int idx) inline {
       }
 
       if (data::jetton_balance >= reward) {
-        burn_nft(sender);
+;;        burn_nft(sender); ;; TODO: need to burn?
         send_jettons(nft_sender, reward, data::jetton_wallet);
         data::jetton_balance -= reward;
         success = true;
