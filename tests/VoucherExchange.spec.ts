@@ -309,22 +309,25 @@ describe('VoucherExchange', () => {
         deployNft = async (config, custom_collection) => {
             const itemAddr = contractAddress(0, {code: nftCode, data: config});
             const currColl = custom_collection ?? collectionAddress;
-            const res = await blockchain.sendMessage(internal({
-                from: currColl,
-                to: itemAddr,
-                body: beginCell().storeAddress(deployer.address).storeRef(new Cell()).endCell(),
-                stateInit: {
-                    code: nftCode,
-                    data: config
-                },
-                value: toNano('1')
-            }));
-            expect(res.transactions).toHaveTransaction({
-                on: itemAddr,
-                from: currColl,
-                aborted: false,
-                deploy: true
-            });
+            const smc = await blockchain.getContract(itemAddr);
+            if(smc.accountState === undefined || smc.accountState.type == 'uninit') {
+                const res = await blockchain.sendMessage(internal({
+                    from: currColl,
+                    to: itemAddr,
+                    body: beginCell().storeAddress(deployer.address).storeRef(new Cell()).endCell(),
+                    stateInit: {
+                        code: nftCode,
+                        data: config
+                    },
+                    value: toNano('1')
+                }));
+                expect(res.transactions).toHaveTransaction({
+                    on: itemAddr,
+                    from: currColl,
+                    aborted: false,
+                    deploy: true
+                });
+            }
             return blockchain.openContract(NFTItem.createFromAddress(itemAddr));
         }
 
