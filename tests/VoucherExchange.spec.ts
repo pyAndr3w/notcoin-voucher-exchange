@@ -690,6 +690,38 @@ describe('VoucherExchange', () => {
                await testExchange(nftCtx, toNano('1'), false, 0n);
            }
        });
+       it('should return nft with incorrect payload', async () => {
+           const nftFat = createNftCtx(matchingCats[getRandomInt(0, matchingCats.length - 1)]);
+           const nftReg = createNftCtx(matchingRegular[getRandomInt(0, matchingRegular.length - 1)]);
+           const msgVal  = toNano('1');
+           let differentOp: number;
+           for(let ctx of [nftFat, nftReg]) {
+                const expAmount    = ctx == nftFat ? expLargeVoucher : expSmallVoucher;
+                const validPayload = VoucherExchange.exchangeVoucherMessage(ctx.index);
+
+                const rndBits = BigInt(getRandomInt(1, 256));
+                const rndPayload = beginCell().storeUint((2n ** rndBits) - 1n, Number(rndBits)).endCell();
+
+                do {
+                    differentOp= getRandomInt(0, (2 ** 32) - 1);
+                } while(differentOp == OP.exchange_voucher);
+
+                const payload96 = beginCell().storeUint(differentOp, 32).storeUint(ctx.index, 64).endCell();
+
+                //Prepend/append
+                const prepend = beginCell().storeSlice(rndPayload.asSlice()).storeSlice(validPayload.asSlice()).endCell();
+                const append  = beginCell().storeSlice(validPayload.asSlice()).storeSlice(rndPayload.asSlice()).endCell();
+                const inRef   = beginCell().storeRef(validPayload).endCell();
+                const inRefWithPayload = beginCell().storeSlice(rndPayload.asSlice()).storeRef(validPayload).endCell();
+
+                for(let payload of [payload96, prepend, append, inRef, inRefWithPayload]) {
+                    await testExchange(ctx, msgVal, false, expAmount, payload);
+                    await testExchange(ctx, msgVal, false, expAmount, payload.asSlice());
+                }
+
+                await testExchange(ctx, msgVal, true, expAmount, validPayload.asSlice());
+           }
+       });
        it('should return nft from different shard', async () => {
            const nftFat = createNftCtx(notMatchingCats[getRandomInt(0, notMatchingCats.length - 1)]);
            const nftReg = createNftCtx(notMatchingRegular[getRandomInt(0, notMatchingRegular.length - 1)]);
