@@ -6,7 +6,7 @@ int get_forward_fee(int workchain, int bits, int cells) asm(cells bits workchain
 const MIN_STORAGE_DURATION = 5 * 365 * 24 * 3600; ;; 5 years
 
 const int MY_WORKCHAIN        = 0;
-const int ACCEPT_JETTON_GAS   = 6061;
+const int ACCEPT_JETTON_GAS   = 6051;
 const int ACCEPT_NFT_GAS      = 12468;
 const int JETTON_TRANSFER_GAS = 10093;
 const int JETTON_RECEIVE_GAS  = 10648;
@@ -22,7 +22,7 @@ const JETTON_WALLET_CELLS = 3;
 
 
 (int) accept_jettons_fee() inline {
-    return get_compute_fee(0, ACCEPT_JETTON_GAS);
+    return get_compute_fee(MY_WORKCHAIN, ACCEPT_JETTON_GAS);
 }
 
 int calculate_jetton_wallet_min_storage_fee() inline {
