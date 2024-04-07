@@ -613,7 +613,18 @@ describe('VoucherExchange', () => {
        it('should send 10m for regular nft', async () => {
            const expAmount = expSmallVoucher;
            const nftCtx    = createNftCtx(matchingRegular[getRandomInt(0, matchingRegular.length - 1)]);
-           await testExchange(nftCtx, toNano('1'), true, expAmount);
+           const res = await testExchange(nftCtx, toNano('1'), true, expAmount);
+
+           const voucherExTx = findTransactionRequired(res.transactions, ({
+               on: voucherExchange.address,
+               from: nftCtx.address,
+               op: NFTOps.ownership_assigned,
+               outMessagesCount: 1,
+               aborted: false,
+           }));
+
+           printTxGasStats("Exchange simple voucher:", voucherExTx);
+
        });
        it('exchange should work with minimal fee', async () => {
            const nftFat = createNftCtx(matchingCats[getRandomInt(0, matchingCats.length - 1)]);
