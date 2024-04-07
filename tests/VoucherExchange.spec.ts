@@ -1,6 +1,6 @@
 import { Blockchain, BlockchainSnapshot, SandboxContract, SendMessageResult, TreasuryContract, internal, createShardAccount, LocalBlockchainStorage } from '@ton/sandbox';
 import { Cell, Slice, toNano, Address, Transaction, beginCell, contractAddress, StateInit, storeMessage, fromNano, Dictionary, BitString, BitBuilder } from '@ton/core';
-import { VoucherExchange, OP } from '../wrappers/VoucherExchange';
+import { VoucherExchange, OP, VoucherExchangeConfig } from '../wrappers/VoucherExchange';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 import { JettonMinter, jettonContentToCell } from '../wrappers/JettonMinter';
@@ -33,10 +33,17 @@ describe('VoucherExchange', () => {
     let voucherExchange: SandboxContract<VoucherExchange>;
     let exchangeWallet: SandboxContract<JettonWallet>;
     let deployerWallet: SandboxContract<JettonWallet>;
+    let exchConfig: VoucherExchangeConfig;
     let msgPrices: MsgPrices;
+    let expLargeVoucher: bigint;
+    let expSmallVoucher: bigint;
     let matchingRegular: number[] = [];
+    let lowRegular: number[] = [];
+    let highRegular: number[] = [];
     let notMatchingRegular: number[] = [];
     let matchingCats: number[]    = [];
+    let lowCats: number[];
+    let highCats: number[];
     let notMatchingCats: number[] = [];
 
     const fatCats = [2 ,  263 ,  324 ,  496 , 1038, 1039, 1040, 1041, 1042 ,
@@ -87,18 +94,18 @@ describe('VoucherExchange', () => {
             jetton_content: jettonContent,
         }, minterCode ));
 
-        voucherExchange = blockchain.openContract(VoucherExchange.createFromConfig({
+        exchConfig = {
             admin: deployer.address,
             jettonRoot: jettonRoot.address,
             minIdx: 1n,
             maxIdx: 10000n
-        }, code, 0));
+        };
 
-
+       // voucherExchange = blockchain.openContract(VoucherExchange.createFromConfig(exchConfig, code, 0));
        const shardMask = (1 << 4) - 1;
        let maxCount = 0;
        const prefixMap: Map<number, number[]> = new Map();
-       let matchPfx = (voucherExchange.address.hash[0] >> 4) & shardMask;
+       // let matchPfx = (voucherExchange.address.hash[0] >> 4) & shardMask;
        let topPrefix: number | undefined;
        createNftCtx = (index, collection) => {
             const curColl = collection ?? collectionAddress;
@@ -120,21 +127,54 @@ describe('VoucherExchange', () => {
            const nftAddr  = createNftCtx(catIdx).address;
            const prefix   = (nftAddr.hash[0] >> 4) & shardMask;
            const matching = prefixMap.get(prefix) ?? [];
-           if(matching.length + 1 > maxCount) {
-                   maxCount  = matching.length + 1;
+           matching.push(catIdx);
+           if(matching.length > maxCount) {
+                   maxCount  = matching.length;
                    topPrefix = prefix;
            }
-           matching.push(catIdx);
            prefixMap.set(prefix, matching);
-
-           if(prefix == matchPfx) {
-               matchingCats.push(catIdx);
-           }
-           else {
-               notMatchingCats.push(catIdx);
-           }
+        }
+        if(topPrefix == undefined) {
+            throw new Error("No top prefix!");
         }
 
+        matchingCats = prefixMap.get(topPrefix)!;
+        if(matchingCats.length < 2) {
+            throw new Error('Too little matching fat cats!');
+        }
+
+        prefixMap.delete(topPrefix);
+
+        notMatchingCats = [...prefixMap.values()].flatMap(v => v);
+
+        const lastMatchingCat  = matchingCats[matchingCats.length - 1];
+        const firstMatchingCat = matchingCats[0];
+        let filterFrom: number | undefined;
+
+        // Exclude at least one matching from both sides
+        for(let i = firstMatchingCat + 1; i < lastMatchingCat - 1; i++) {
+            exchConfig = {
+                admin: deployer.address,
+                jettonRoot: jettonRoot.address,
+                minIdx: BigInt(i),
+                maxIdx: BigInt(lastMatchingCat - 1)
+            };
+            voucherExchange = blockchain.openContract(VoucherExchange.createFromConfig(exchConfig, code));
+            if(((voucherExchange.address.hash[0] >> 4) & shardMask) == topPrefix) {
+                filterFrom = i;
+                break;
+            }
+        }
+        // Meh
+        lowCats  = matchingCats.filter(c => BigInt(c) < exchConfig.minIdx);
+        highCats = matchingCats.filter(c => BigInt(c) > exchConfig.maxIdx);
+        matchingCats = matchingCats.filter(c => BigInt(c) >= exchConfig.minIdx && BigInt(c) <= exchConfig.maxIdx);
+        if(lowCats.length == 0) {
+            throw new Error("No low cats");
+        }
+        if(highCats.length == 0) {
+            throw new Error("No high cats");
+        }
         let deployResult = await jettonRoot.sendDeploy(deployer.getSender(), toNano('1'));
         expect(deployResult.transactions).toHaveTransaction({
             from: deployer.address,
@@ -157,6 +197,7 @@ describe('VoucherExchange', () => {
 
         expect((await voucherExchange.getExchangeData()).wallet).toEqualAddress(exchangeWallet.address);
 
+        /*
         if(matchingCats.length < 2) {
             console.log("No luck finding fat cats in matching shard!");
             if(topPrefix === undefined) {
@@ -195,22 +236,32 @@ describe('VoucherExchange', () => {
 
             notMatchingCats = [...prefixMap.values()].flatMap(x => x);
         }
+        */
 
         let catIdx     = 1;
         let matchCount = 0;
         let missCount  = 0;
+        let tooLow  = 0;
+        let tooHigh = Number(exchConfig.maxIdx + 1n);
 
         let fatMap = new Set(fatCats);
 
-        matchPfx   = (voucherExchange.address.hash[0] >> 4) & shardMask;
+        // matchPfx   = (voucherExchange.address.hash[0] >> 4) & shardMask;
 
-        while (matchCount < 5 || missCount < 10) {
+        while (matchCount < 5 || missCount < 10 || tooLow < 1) {
             if(!fatMap.has(catIdx)) {
                 const nftAddr = createNftCtx(catIdx).address;
-                if(((nftAddr.hash[0] >> 4) & shardMask) == matchPfx) {
-                    if(matchCount < 5) {
+                if(((nftAddr.hash[0] >> 4) & shardMask) == topPrefix) {
+                    if(matchCount < 5 && catIdx >= exchConfig.minIdx && catIdx <= exchConfig.maxIdx) {
                         matchingRegular.push(catIdx);
                         matchCount++;
+                    }
+                    else if(catIdx < exchConfig.minIdx && tooLow < 1) {
+                        tooLow++;
+                        lowRegular.push(catIdx);
+                    }
+                    else if(catIdx > exchConfig.maxIdx) {
+                        highRegular.push(catIdx);
                     }
                 }
                 else if(missCount < 10) {
@@ -219,6 +270,20 @@ describe('VoucherExchange', () => {
                 }
             }
             catIdx++;
+        }
+        if(highRegular.length == 0) {
+            let highCount = 0;
+            do {
+               const nftAddr = createNftCtx(tooHigh).address;
+               if(((nftAddr.hash[0] >> 4) & shardMask) == topPrefix) {
+                   highRegular.push(tooHigh);
+                   highCount++;
+               }
+               tooHigh++;
+            } while(highCount < 5);
+        }
+        if(lowRegular.length == 0) {
+            throw new Error("Unable to find at least 1 too low regular nft");
         }
 
         deployerWallet = blockchain.openContract(JettonWallet.createFromAddress(
