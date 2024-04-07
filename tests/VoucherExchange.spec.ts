@@ -758,5 +758,17 @@ describe('VoucherExchange', () => {
            expect((await voucherExchange.getExchangeData()).balance).toBeLessThan(expReg);
            await testExchange(createNftCtx(matchingRegular[smallCount]), msgVal, false, expReg);
        });
+       it('should return nft when index is out of bounds', async () => {
+           const msgVal     = toNano('1');
+
+           const fatLowCtx  = createNftCtx(lowCats[getRandomInt(0, lowCats.length - 1)]);
+           const fatHighCtx = createNftCtx(highCats[getRandomInt(0, highCats.length - 1)]);
+           const regHighCtx = createNftCtx(highRegular[getRandomInt(0, highRegular.length - 1)]);
+           const regLowCtx  = createNftCtx(lowRegular[getRandomInt(0, lowRegular.length - 1)]);
+
+           for (let ctx of [fatLowCtx, fatHighCtx, regHighCtx, regLowCtx]) {
+               await testExchange(ctx, msgVal, false, 0n);
+           }
+       });
    });
 });
