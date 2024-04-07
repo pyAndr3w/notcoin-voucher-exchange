@@ -8,7 +8,7 @@ import { JettonWallet } from '../wrappers/JettonWallet';
 import { Op } from '../wrappers/JettonConstants';
 import { differentAddress, getContractData, getRandomInt, getRandomTon, testJettonNotification, testJettonTransfer } from './utils';
 import { findTransactionRequired, randomAddress } from '@ton/test-utils';
-import { computedGeneric, getMsgPrices, MsgPrices, computeMessageForwardFees, getFwdStats, computeFwdFees, collectCellStats } from './gasUtils';
+import { computedGeneric, getMsgPrices, MsgPrices, computeMessageForwardFees, getFwdStats, computeFwdFees, collectCellStats, getGasPrices, setGasPrice, GasPrices, setMsgPrices, getStoragePrices, StoragePrices, setStoragePrices } from './gasUtils';
 import { NFTItem, NFTOps, itemConfigToCell } from '../wrappers/NFTItem';
 import { aborted } from 'util';
 
@@ -62,6 +62,8 @@ describe('VoucherExchange', () => {
 
     let testDeposit: (forward_amount: bigint, payload: Cell | Slice, expReturn: boolean, custom_minter?: SandboxContract<JettonMinter>) => Promise<SendMessageResult>;
     let testExchange: (nft_ctx: NftCtx, amount: bigint, expSuccess: boolean, expAmount: bigint, custom_payload?: Cell | Slice) => Promise<SendMessageResult>;
+    let testConfigChange:(update_cfg: () => Promise<Cell>, testAfter: (min_fee: bigint) => Promise<bigint>) => Promise<bigint>;
+    let testFeeIncreased: (fee_before: bigint) => Promise<bigint>;
 
     let printTxGasStats: (name: string, trans: Transaction) => bigint;
 
@@ -408,6 +410,27 @@ describe('VoucherExchange', () => {
             }
             return res;
         }
+        testConfigChange = async (update_cfg, testAfter) => {
+            const feeBefore = await voucherExchange.getExchangeFee();
+            await update_cfg();
+            return await testAfter(feeBefore);
+        }
+        testFeeIncreased = async (fee_before) => {
+           const nftFat = createNftCtx(matchingCats[getRandomInt(0, matchingCats.length - 1)]);
+           const nftReg = createNftCtx(matchingRegular[getRandomInt(0, matchingRegular.length - 1)]);
+
+           const minAfter = await voucherExchange.getExchangeFee();
+
+           expect(minAfter).toBeGreaterThan(fee_before);
+           // Transfer with old minimal value should fail gracefully
+           for(let ctx of [nftFat, nftReg]) {
+               const expAmount = ctx == nftFat ? expLargeVoucher : expSmallVoucher;
+               await testExchange(ctx, fee_before, false, expAmount);
+               // Adjusted minimal value should do the trick
+               await testExchange(ctx, minAfter, true, expAmount);
+           }
+           return minAfter;
+        }
     });
     it('should deploy', async () => {
         const exchData = await voucherExchange.getExchangeData();
@@ -603,6 +626,46 @@ describe('VoucherExchange', () => {
                await blockchain.loadFrom(prevState);
                await testExchange(nftCtx, minFee - 1n, false, expAmount);
            }
+       });
+       it('exchange fee should account for actual config gas price', async () => {
+           await testConfigChange(async () => {
+               const oldConfig = blockchain.config;
+
+               const gasPrices = getGasPrices(oldConfig, 0);
+               const newPrices: GasPrices = {
+                   ...gasPrices,
+                   gas_price: gasPrices.gas_price * 3n
+               };
+               blockchain.setConfig(setGasPrice(oldConfig, newPrices, 0));
+               return blockchain.config;
+           }, testFeeIncreased);
+       });
+       it('exchange fee should account for actual fwd fee', async () => {
+           await testConfigChange( async () => {
+               const oldConfig = blockchain.config;
+               const newPrices : MsgPrices = {
+                   ...msgPrices,
+                   bitPrice: msgPrices.bitPrice * 10n,
+                   cellPrice: msgPrices.cellPrice * 10n
+               }
+               blockchain.setConfig(setMsgPrices(oldConfig, newPrices, 0));
+               return blockchain.config;
+           }, testFeeIncreased);
+       });
+       it('exchange fee should account for actual storage fee', async () => {
+           await testConfigChange(async () => {
+               const oldConfig = blockchain.config;
+
+               const storagePrices = getStoragePrices(blockchain.config);
+
+               const newPrices: StoragePrices = {
+                   ...storagePrices,
+                   cell_price_ps: storagePrices.cell_price_ps * 10n,
+                   bit_price_ps: storagePrices.bit_price_ps * 10n
+               };
+               blockchain.setConfig(setStoragePrices(oldConfig, newPrices));
+               return blockchain.config
+           }, testFeeIncreased);
        });
        it('should return nft when index is missmatched', async () => {
            const nftFat = createNftCtx(matchingCats[getRandomInt(0, matchingCats.length - 1)]);
