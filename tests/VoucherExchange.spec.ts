@@ -83,6 +83,9 @@ describe('VoucherExchange', () => {
         walletCode   = new Cell({ exotic:true, bits: lib_prep.bits, refs:lib_prep.refs});
 
 
+        expLargeVoucher = BigInt(10 ** 8);
+        expSmallVoucher = BigInt(10 ** 7);
+
         msgPrices  = getMsgPrices(blockchain.config, 0);
 
         depositPayload = VoucherExchange.depositJettonsMessage();
@@ -542,7 +545,7 @@ describe('VoucherExchange', () => {
            await blockchain.loadFrom(prevState);
        });
        it('should send 100m for a large voucher', async () => {
-           const expAmount = BigInt(10 ** 8);
+           const expAmount = expLargeVoucher;
            const nftCtx  = createNftCtx(matchingCats[getRandomInt(0, matchingCats.length - 1)]);
 
            const res = await testExchange(nftCtx, toNano('1'), true, expAmount);
@@ -582,7 +585,7 @@ describe('VoucherExchange', () => {
            });
        });
        it('should send 10m for regular nft', async () => {
-           const expAmount = BigInt(10 ** 7);
+           const expAmount = expSmallVoucher;
            const nftCtx    = createNftCtx(matchingRegular[getRandomInt(0, matchingRegular.length - 1)]);
            await testExchange(nftCtx, toNano('1'), true, expAmount);
        });
@@ -595,9 +598,7 @@ describe('VoucherExchange', () => {
            console.log("Minimal fee:", fromNano(minFee));
 
            for(let nftCtx of [nftFat, nftReg]) {
-               let power = nftCtx == nftFat ? 8 : 7;
-
-               const expAmount = BigInt(10 ** power);
+               const expAmount = nftCtx == nftFat ? expLargeVoucher : expSmallVoucher;
                await testExchange(nftCtx, minFee, true, expAmount);
                await blockchain.loadFrom(prevState);
                await testExchange(nftCtx, minFee - 1n, false, expAmount);
@@ -633,8 +634,8 @@ describe('VoucherExchange', () => {
        });
        it('should return nft when there is not enough balance', async () => {
            const msgVal    = toNano('1');
-           const expReg    = BigInt(10 ** 7);
-           const expLarge  = expReg * 10n;
+           const expReg    = expSmallVoucher
+           const expLarge  = expLargeVoucher;
            let balanceLeft = (await voucherExchange.getExchangeData()).balance;
            let fatCount    = Number(balanceLeft / expLarge);
 
