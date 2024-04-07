@@ -61,7 +61,7 @@ describe('VoucherExchange', () => {
     let deployNft: (config: Cell, collection?: Address) => Promise<SandboxContract<NFTItem>>;
 
     let testDeposit: (forward_amount: bigint, payload: Cell | Slice, expReturn: boolean, custom_minter?: SandboxContract<JettonMinter>) => Promise<SendMessageResult>;
-    let testExchange: (nft_ctx: NftCtx, amount: bigint, expSuccess: boolean, expAmount: bigint, custom_payload?: Cell) => Promise<SendMessageResult>;
+    let testExchange: (nft_ctx: NftCtx, amount: bigint, expSuccess: boolean, expAmount: bigint, custom_payload?: Cell | Slice) => Promise<SendMessageResult>;
 
     let printTxGasStats: (name: string, trans: Transaction) => bigint;
 
