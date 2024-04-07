@@ -438,12 +438,12 @@ describe('VoucherExchange', () => {
     it('should deploy', async () => {
         const exchData = await voucherExchange.getExchangeData();
         expect(exchData.inited).toBe(true);
-        expect(exchData.admin).toEqualAddress(deployer.address);
+        expect(exchData.admin).toEqualAddress(exchConfig.admin);
         expect(exchData.proposedAdmin).toBe(null);
         expect(exchData.balance).toBe(0n);
         expect(exchData.wallet).toEqualAddress(exchangeWallet.address);
-        expect(exchData.min_idx).toBe(1n);
-        expect(exchData.max_idx).toBe(10000n);
+        expect(exchData.min_idx).toBe(exchConfig.minIdx);
+        expect(exchData.max_idx).toBe(exchConfig.maxIdx);
     });
     describe('Jetton deposits', () => {
      it('should accept jettons own wallet', async () => {
