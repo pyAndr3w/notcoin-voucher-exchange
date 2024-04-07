@@ -691,8 +691,8 @@ describe('VoucherExchange', () => {
            }
        });
        it('should return nft from different shard', async () => {
-          const nftFat = createNftCtx(notMatchingCats[getRandomInt(0, notMatchingCats.length - 1)]);
-          const nftReg = createNftCtx(notMatchingRegular[getRandomInt(0, notMatchingRegular.length - 1)]);
+           const nftFat = createNftCtx(notMatchingCats[getRandomInt(0, notMatchingCats.length - 1)]);
+           const nftReg = createNftCtx(notMatchingRegular[getRandomInt(0, notMatchingRegular.length - 1)]);
 
            for(let nftCtx of [nftFat, nftReg]) {
                await testExchange(nftCtx, toNano('1'), false, 0n);
