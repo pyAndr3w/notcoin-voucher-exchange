@@ -219,7 +219,7 @@ slice calc_nft_address(int idx) inline {
     int either_forward_payload = in_msg_body~load_bool();
     slice forward_payload = either_forward_payload ? in_msg_body~load_ref().begin_parse() : in_msg_body;
 
-    if ((forward_payload.slice_bits() != (32 + 64)) | (msg_value < exchange_voucher_fee()) | (~ data::jetton_init?)) { ;; TODO fix gas
+    ifnot ((forward_payload.slice_bits() == (32 + 64)) & (msg_value >= exchange_voucher_fee()) & data::jetton_init?) { ;; TODO fix gas
       send_nft(nft_sender, sender);
       return ();
     }
