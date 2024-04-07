@@ -5,7 +5,7 @@ export type GasPrices = {
 	flat_gas_price: bigint,
 	gas_price: bigint;
 };
-export type StorageValue = {
+export type StoragePrices = {
     utime_sice: number,
     bit_price_ps: bigint,
     cell_price_ps: bigint,
@@ -154,7 +154,7 @@ export function setGasPrice(configRaw: Cell, prices: GasPrices, workchain: 0 | -
     return beginCell().storeDictDirect(config).endCell();
 }
 
-export const storageValue : DictionaryValue<StorageValue> =  {
+export const storageValue : DictionaryValue<StoragePrices> =  {
         serialize: (src, builder) => {
             builder.storeUint(0xcc, 8)
                    .storeUint(src.utime_sice, 32)
@@ -181,10 +181,10 @@ export function getStoragePrices(configRaw: Cell) {
 
     return values[values.length - 1];
 }
-export function calcStorageFee(prices: StorageValue, stats: StorageStats, duration: bigint) {
+export function calcStorageFee(prices: StoragePrices, stats: StorageStats, duration: bigint) {
     return shr16ceil((stats.bits * prices.bit_price_ps + stats.cells * prices.cell_price_ps) * duration) 
 }
-export function setStoragePrices(configRaw: Cell, prices: StorageValue) {
+export function setStoragePrices(configRaw: Cell, prices: StoragePrices) {
     const config = configRaw.beginParse().loadDictDirect(Dictionary.Keys.Int(32), Dictionary.Values.Cell());
     const storageData = Dictionary.loadDirect(Dictionary.Keys.Uint(32),storageValue, config.get(18)!);
     storageData.set(storageData.values().length - 1, prices);
