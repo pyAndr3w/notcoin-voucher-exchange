@@ -787,4 +787,131 @@ describe('VoucherExchange', () => {
            }
        });
    });
+   describe('Bad init', () => {
+       let newDeployer: SandboxContract<TreasuryContract>;
+       let newExchange: SandboxContract<VoucherExchange>;
+       let newDepWallet: SandboxContract<JettonWallet>;
+       let newExchWallet: SandboxContract<JettonWallet>;
+       let testItemCtx: NftCtx;
+
+       beforeAll(async () => {
+           newDeployer = await blockchain.treasury('new_deployer');
+           const newConfig: VoucherExchangeConfig = {
+               ...exchConfig,
+               admin: newDeployer.address
+           }
+           newExchange = blockchain.openContract(VoucherExchange.createFromConfig(newConfig, code));
+           const shardMask = (1 << 4) - 1;
+           const matchPfx = (newExchange.address.hash[0] >> 4) & shardMask;
+           for(let i = Number(newConfig.minIdx); i < Number(newConfig.maxIdx); i++) {
+               const ctx = createNftCtx(i);
+               if(((ctx.address.hash[0] >> 4) & shardMask) == matchPfx) {
+                   testItemCtx = ctx;
+                   break;
+               }
+           }
+           if(testItemCtx == undefined) {
+               throw new Error("Unable to find nft with matching prefix");
+           }
+           const res = await newDeployer.send({
+               to: newExchange.address,
+               value: toNano('1'),
+               body: beginCell().endCell(),
+               init: {
+                   code,
+                   data: voucherExchangeConfigToCell(newConfig)
+               }
+           });
+           expect(res.transactions).toHaveTransaction({
+               on: newExchange.address,
+               deploy: true,
+               success: false
+           });
+           newDepWallet = blockchain.openContract(JettonWallet.createFromAddress(
+               await jettonRoot.getWalletAddress(newDeployer.address)
+           ));
+           newExchWallet = blockchain.openContract(JettonWallet.createFromAddress(
+               await jettonRoot.getWalletAddress(newExchange.address)
+           ));
+           // Mint some
+           const mintAmount     = BigInt(getRandomInt(100, 200) * 1000000);
+           await jettonRoot.sendMint(deployer.getSender(), newDeployer.address, mintAmount, deployer.address, deployer.address);
+           expect(await newDepWallet.getJettonBalance()).toEqual(mintAmount);
+       });
+       it('should set init field to false, when deployed incorrectly', async () => {
+           const exchData = await newExchange.getExchangeData();
+           expect(exchData.admin).toEqualAddress(newDeployer.address);
+           expect(exchData.proposedAdmin).toBe(null);
+           expect(exchData.inited).toBe(false);
+       });
+       it('should return jettons when not inited', async () => {
+           const sendAmount = BigInt(getRandomInt(1, 5) * 1000000);
+           const balanceBefore = await newDepWallet.getJettonBalance();
+           const dataBefore = await getContractData(newExchange.address, blockchain);
+           const res        = await newDepWallet.sendTransfer(newDeployer.getSender(), toNano('2'), sendAmount, newExchange.address, newDeployer.address, null, toNano('1'), depositPayload);
+           // Should receive first
+           expect(res.transactions).toHaveTransaction({
+               on: newExchange.address,
+               from: newExchWallet.address,
+               op: Op.transfer_notification,
+               // value: toNano('1'),
+               aborted: false,
+               outMessagesCount: 1
+           });
+           // And send back
+           expect(res.transactions).toHaveTransaction({
+               on: newDepWallet.address,
+               from: newExchWallet.address,
+               op: Op.internal_transfer,
+               body: (x) => testJettonInternalTransfer(x!, {
+                   amount: sendAmount
+               }),
+               aborted: false
+           });
+           expect(res.transactions).toHaveTransaction({
+               on: newDeployer.address,
+               from: newDepWallet.address,
+               op: Op.transfer_notification,
+               body: (x) => testJettonNotification(x!, {
+                   amount: sendAmount
+               }),
+           });
+           // Balance should not change
+           expect(await newDepWallet.getJettonBalance()).toEqual(balanceBefore);
+           // Contract state should not change
+           expect(await getContractData(newExchange.address, blockchain)).toEqualCell(dataBefore);
+       });
+       it('should return nft when send to uninited exchange', async () => {
+           const exchPayload = VoucherExchange.exchangeVoucherMessage(testItemCtx.index);
+           await testExchange(testItemCtx, toNano('1'), false, 0n, exchPayload, newExchange);
+       });
+       it('should be able to init later', async () => {
+           const dataBefore = await newExchange.getExchangeData();
+
+           expect(dataBefore.inited).toBe(false);
+           expect(dataBefore.wallet).toEqualAddress(jettonRoot.address);
+
+           const expWallet = await jettonRoot.getWalletAddress(newExchange.address);
+
+           const res = await newExchange.sendDeploy(newDeployer.getSender(), toNano('1'));
+
+           expect(res.transactions).toHaveTransaction({
+               on: jettonRoot.address,
+               from: newExchange.address,
+               op: Op.provide_wallet_address,
+               aborted: false
+           });
+           expect(res.transactions).toHaveTransaction({
+               on: newExchange.address,
+               from: jettonRoot.address,
+               op: Op.take_wallet_address,
+               body: (x) => x!.beginParse().skip(32 + 64).loadAddress().equals(expWallet),
+               aborted: false
+           });
+
+           const dataAfter = await newExchange.getExchangeData();
+           expect(dataAfter.inited).toBe(true);
+           expect(dataAfter.wallet).toEqualAddress(expWallet);
+       });
+   });
 });
