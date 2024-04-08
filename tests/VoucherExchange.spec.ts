@@ -914,4 +914,115 @@ describe('VoucherExchange', () => {
            expect(dataAfter.wallet).toEqualAddress(expWallet);
        });
    });
+   describe('Admin functionality', () => {
+       let newAdmin: SandboxContract<TreasuryContract>;
+       let notAdmin: SandboxContract<TreasuryContract>;
+       let prevState: BlockchainSnapshot;
+
+       beforeAll(async () => {
+           prevState = blockchain.snapshot();
+           newAdmin = await blockchain.treasury('new_admin');
+           notAdmin = await blockchain.treasury('totally_not_admin');
+       });
+       afterAll(async () => await blockchain.loadFrom(prevState));
+       it('not admin should not be able to send message from exchange contract', async () => {
+           const res = await voucherExchange.sendMessage(notAdmin.getSender(), internal_relaxed({
+               to: newAdmin.address,
+               value: 0n,
+           }), 64, toNano('100'));
+           expect(res.transactions).toHaveTransaction({
+               on: voucherExchange.address,
+               from: notAdmin.address,
+               op: OP.send_message,
+               aborted: true
+           });
+           expect(res.transactions).not.toHaveTransaction({
+               on: newAdmin.address,
+               from: voucherExchange.address
+           });
+       });
+       it('admin should be able to send arbitrary message from exchange contract', async () => {
+           const msgVal = toNano('100');
+           const res = await voucherExchange.sendMessage(deployer.getSender(), internal_relaxed({
+               to: newAdmin.address,
+               value: 0n,
+           }), 64, msgVal);
+
+           const sendMsgTx = findTransactionRequired(res.transactions, {
+               on: voucherExchange.address,
+               from: deployer.address,
+               aborted: false,
+               outMessagesCount: 1
+           });
+           // Make sure send mode works as expected
+           expect(res.transactions).toHaveTransaction({
+               on: newAdmin.address,
+               from: voucherExchange.address,
+               value: msgVal - computedGeneric(sendMsgTx).gasFees - msgPrices.lumpPrice
+           });
+       });
+       it('not admin should not be able to initiate admin change', async () => {
+           const exchData = await voucherExchange.getExchangeData();
+           expect(exchData.proposedAdmin).toBe(null);
+           expect(notAdmin.address).not.toEqualAddress(exchData.admin);
+           const dataBefore = await getContractData(voucherExchange.address, blockchain);
+
+           const res = await voucherExchange.sendChangeAdmin(notAdmin.getSender(), newAdmin.address);
+
+           expect(res.transactions).toHaveTransaction({
+               on: voucherExchange.address,
+               from: notAdmin.address,
+               op: OP.change_admin,
+               aborted: true
+           });
+
+           expect(await getContractData(voucherExchange.address, blockchain)).toEqualCell(dataBefore);
+       });
+       it('admin should be able to initiate admin change', async () => {
+           const exchData = await voucherExchange.getExchangeData();
+           expect(exchData.proposedAdmin).toBe(null);
+           expect(deployer.address).toEqualAddress(exchData.admin);
+
+           const res = await voucherExchange.sendChangeAdmin(deployer.getSender(), newAdmin.address);
+
+           expect(res.transactions).toHaveTransaction({
+               on: voucherExchange.address,
+               from: deployer.address,
+               op: OP.change_admin,
+               aborted: false
+           });
+           expect((await voucherExchange.getExchangeData()).proposedAdmin).toEqualAddress(newAdmin.address);
+       });
+       it('only prpoposed admin could claim admin rights', async () => {
+           const exchData = await voucherExchange.getExchangeData();
+           expect(exchData.proposedAdmin).toEqualAddress(newAdmin.address);
+           expect(deployer.address).toEqualAddress(exchData.admin);
+
+           const dataBefore = await getContractData(voucherExchange.address, blockchain);
+
+           for(let candidate of [notAdmin, deployer]) {
+               const res = await voucherExchange.sendClaimAdmin(candidate.getSender());
+               expect(res.transactions).toHaveTransaction({
+                   on: voucherExchange.address,
+                   from: candidate.address,
+                   op: OP.claim_admin,
+                   aborted: true
+               });
+               expect(await getContractData(voucherExchange.address, blockchain)).toEqualCell(dataBefore);
+           }
+
+           const res = await voucherExchange.sendClaimAdmin(newAdmin.getSender());
+
+           expect(res.transactions).toHaveTransaction({
+               on: voucherExchange.address,
+               from: newAdmin.address,
+               op: OP.claim_admin,
+               aborted: false
+           });
+
+           const dataAfter = await voucherExchange.getExchangeData();
+           expect(dataAfter.admin).toEqualAddress(newAdmin.address);
+           expect(dataAfter.proposedAdmin).toBe(null);
+       });
+   });
 });
