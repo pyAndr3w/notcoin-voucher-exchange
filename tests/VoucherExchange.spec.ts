@@ -60,7 +60,7 @@ describe('VoucherExchange', () => {
     let deployNft: (config: Cell, collection?: Address) => Promise<SandboxContract<NFTItem>>;
 
     let testDeposit: (forward_amount: bigint, payload: Cell | Slice, expReturn: boolean, custom_minter?: SandboxContract<JettonMinter>) => Promise<SendMessageResult>;
-    let testExchange: (nft_ctx: NftCtx, amount: bigint, expSuccess: boolean, expAmount: bigint, custom_payload?: Cell | Slice) => Promise<SendMessageResult>;
+    let testExchange: (nft_ctx: NftCtx, amount: bigint, expSuccess: boolean, expAmount: bigint, custom_payload?: Cell | Slice, custom_exchange?: SandboxContract<VoucherExchange>) => Promise<SendMessageResult>;
     let testConfigChange:(update_cfg: () => Promise<Cell>, testAfter: (min_fee: bigint) => Promise<bigint>) => Promise<bigint>;
     let testFeeIncreased: (fee_before: bigint) => Promise<bigint>;
 
@@ -388,26 +388,32 @@ describe('VoucherExchange', () => {
             return res;
         }
 
-        testExchange = async (ctx , amount, expSuccess, expAmount, custom_payload) => {
+        testExchange = async (ctx , amount, expSuccess, expAmount, custom_payload, custom_exch) => {
             const nftItem = await deployNft(ctx.config, ctx.collection);
             const idx     = (await nftItem.getNFTData()).index;
 
+            const curExch    = custom_exch ?? voucherExchange;
+            const exchData   = await curExch.getExchangeData();
+            const exchWallet = blockchain.openContract(JettonWallet.createFromAddress(
+                await jettonRoot.getWalletAddress(curExch.address)
+            ));
+
             const deployerBalanceBefore = await deployerWallet.getJettonBalance();
-            const exchangeBalanceBefore = (await voucherExchange.getExchangeData()).balance;
-            const exchangeWalletBefore  = await exchangeWallet.getJettonBalance();
+            const exchangeBalanceBefore = exchData.balance;
+            const exchangeWalletBefore  = await exchWallet.getJettonBalance();
             const exchangePayload       = custom_payload ?? VoucherExchange.exchangeVoucherMessage(BigInt(idx));
 
-            const res = await nftItem.sendTransfer(deployer.getSender(), voucherExchange.address, deployer.address, amount, exchangePayload);
+            const res = await nftItem.sendTransfer(deployer.getSender(), curExch.address, deployer.address, amount, exchangePayload);
             if(expSuccess) {
-                expect((await nftItem.getNFTData()).owner).toEqualAddress(voucherExchange.address);
-                expect((await voucherExchange.getExchangeData()).balance).toEqual(exchangeBalanceBefore - expAmount);
-                expect(await exchangeWallet.getJettonBalance()).toEqual(exchangeWalletBefore - expAmount);
+                expect((await nftItem.getNFTData()).owner).toEqualAddress(curExch.address);
+                expect((await curExch.getExchangeData()).balance).toEqual(exchangeBalanceBefore - expAmount);
+                expect(await exchWallet.getJettonBalance()).toEqual(exchangeWalletBefore - expAmount);
                 expect(await deployerWallet.getJettonBalance()).toEqual(deployerBalanceBefore + expAmount);
             }
             else {
                 expect((await nftItem.getNFTData()).owner).toEqualAddress(deployer.address);
-                expect((await voucherExchange.getExchangeData()).balance).toEqual(exchangeBalanceBefore);
-                expect(await exchangeWallet.getJettonBalance()).toEqual(exchangeWalletBefore);
+                expect((await curExch.getExchangeData()).balance).toEqual(exchangeBalanceBefore);
+                expect(await exchWallet.getJettonBalance()).toEqual(exchangeWalletBefore);
                 expect(await deployerWallet.getJettonBalance()).toEqual(deployerBalanceBefore);
             }
             return res;
