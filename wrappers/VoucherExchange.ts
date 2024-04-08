@@ -2,6 +2,7 @@ import {
     Address,
     beginCell,
     Cell,
+    toNano,
     Contract,
     contractAddress,
     ContractProvider,
@@ -10,11 +11,11 @@ import {
     SendMode, storeMessageRelaxed
 } from '@ton/core';
 
-enum OP {
+export enum OP {
     init = 0x5a6e0982,
     deposit_jettons = 0x6d8b6e80,
     send_message = 0x3df81015,
-    change_admin = 0x4e9a134f,
+    change_admin = 0x548e8bfd,
     claim_admin = 0x56c97402,
     exchange_voucher = 0x5fec6642,
 }
@@ -22,7 +23,6 @@ enum OP {
 export type VoucherExchangeConfig = {
     admin: Address,
     jettonRoot: Address,
-    map100m: Cell,
     minIdx: bigint,
     maxIdx: bigint
 };
@@ -31,12 +31,10 @@ export function voucherExchangeConfigToCell(config: VoucherExchangeConfig): Cell
     return beginCell()
           .storeAddress(config.admin)
           .storeAddress(null)
-          .storeUint(0, 1)
+          .storeBit(false)
           .storeAddress(config.jettonRoot)
           .storeCoins(0)
           .storeRef(beginCell()
-                   .storeUint(1,1)
-                   .storeRef(config.map100m)
                    .storeUint(config.minIdx, 64)
                    .storeUint(config.maxIdx, 64)
                    .endCell())
@@ -71,8 +69,7 @@ export class VoucherExchange implements Contract {
     static depositJettonsMessage() {
         return beginCell().storeUint(OP.deposit_jettons, 32).endCell();
     }
-
-    static sendMessage(queryId: bigint, message: MessageRelaxed | Cell, mode: number) {
+    static sendMessageBody(queryId: bigint, message: MessageRelaxed | Cell, mode: number) {
         let messageCell: Cell;
 
         if (message instanceof Cell) {
@@ -84,16 +81,58 @@ export class VoucherExchange implements Contract {
         }
         return beginCell().storeUint(OP.send_message, 32).storeUint(queryId, 64).storeRef(messageCell).storeUint(mode, 8).endCell();
     }
+    async sendMessage(provider: ContractProvider, via: Sender, message: MessageRelaxed | Cell, mode: number, value: bigint, query_id: bigint = 0n) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: VoucherExchange.sendMessageBody(query_id, message, mode)
+        });
+    }
 
     static changeAdminMessage(queryId: bigint, proposedAdmin: Address | null) {
         return beginCell().storeUint(OP.change_admin, 32).storeUint(queryId, 64).storeAddress(proposedAdmin).endCell();
+    }
+    async sendChangeAdmin(provider: ContractProvider, via: Sender, proposedAdmin: Address, query_id: bigint = 0n, value: bigint = toNano('0.05')) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: VoucherExchange.changeAdminMessage(query_id, proposedAdmin)
+        });
     }
 
     static claimAdminMessage(queryId: bigint) {
         return beginCell().storeUint(OP.claim_admin, 32).storeUint(queryId, 64).endCell();
     }
+    async sendClaimAdmin(provider: ContractProvider, via: Sender, query_id: bigint = 0n, value: bigint = toNano('0.05')) {
+        await provider.internal(via, {
+            value,
+            sendMode: SendMode.PAY_GAS_SEPARATELY,
+            body: VoucherExchange.claimAdminMessage(query_id)
+        });
+    }
 
     static exchangeVoucherMessage(voucherIdx: bigint) {
-        beginCell().storeUint(OP.exchange_voucher, 32).storeUint(voucherIdx, 64).endCell();
+        return beginCell().storeUint(OP.exchange_voucher, 32).storeUint(voucherIdx, 64).endCell();
+    }
+
+    async getExchangeData(provider: ContractProvider) {
+        const { stack } = await provider.get('get_exchange_data', []);
+        const admin = stack.readAddress();
+        const proposedAdmin = stack.readAddressOpt();
+        const isInited = stack.readBoolean();
+
+        return {
+            admin,
+            proposedAdmin,
+            inited: isInited,
+            wallet: stack.readAddress(),
+            balance: stack.readBigNumberOpt() || 0n,
+            min_idx: stack.readBigNumberOpt() || 0n,
+            max_idx: stack.readBigNumberOpt() || 0n
+        }
+    }
+    async getExchangeFee(provider: ContractProvider) {
+        const { stack } = await provider.get('get_exchange_fee', []);
+        return stack.readBigNumber();
     }
 }
