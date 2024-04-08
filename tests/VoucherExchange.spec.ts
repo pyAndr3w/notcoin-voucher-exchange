@@ -1,16 +1,15 @@
-import { Blockchain, BlockchainSnapshot, SandboxContract, SendMessageResult, TreasuryContract, internal, createShardAccount, LocalBlockchainStorage } from '@ton/sandbox';
-import { Cell, Slice, toNano, Address, Transaction, beginCell, contractAddress, StateInit, storeMessage, fromNano, Dictionary, BitString, BitBuilder } from '@ton/core';
-import { VoucherExchange, OP, VoucherExchangeConfig } from '../wrappers/VoucherExchange';
+import { Blockchain, BlockchainSnapshot, SandboxContract, SendMessageResult, TreasuryContract, internal } from '@ton/sandbox';
+import { Cell, Slice, toNano, Address, Transaction, beginCell, contractAddress, storeMessage, fromNano, Dictionary, internal as internal_relaxed } from '@ton/core';
+import { VoucherExchange, OP, VoucherExchangeConfig, voucherExchangeConfigToCell } from '../wrappers/VoucherExchange';
 import '@ton/test-utils';
 import { compile } from '@ton/blueprint';
 import { JettonMinter, jettonContentToCell } from '../wrappers/JettonMinter';
 import { JettonWallet } from '../wrappers/JettonWallet';
 import { Op } from '../wrappers/JettonConstants';
-import { differentAddress, getContractData, getRandomInt, getRandomTon, testJettonNotification, testJettonTransfer } from './utils';
+import { differentAddress, getContractData, getRandomInt, getRandomTon, testJettonInternalTransfer, testJettonNotification, testJettonTransfer } from './utils';
 import { findTransactionRequired, randomAddress } from '@ton/test-utils';
-import { computedGeneric, getMsgPrices, MsgPrices, computeMessageForwardFees, getFwdStats, computeFwdFees, collectCellStats, getGasPrices, setGasPrice, GasPrices, setMsgPrices, getStoragePrices, StoragePrices, setStoragePrices } from './gasUtils';
+import { computedGeneric, getMsgPrices, MsgPrices, computeMessageForwardFees, collectCellStats, getGasPrices, setGasPrice, GasPrices, setMsgPrices, getStoragePrices, StoragePrices, setStoragePrices } from './gasUtils';
 import { NFTItem, NFTOps, itemConfigToCell } from '../wrappers/NFTItem';
-import { aborted } from 'util';
 
 describe('VoucherExchange', () => {
     type NftCtx = {
