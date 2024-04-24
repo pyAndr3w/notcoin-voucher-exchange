@@ -84,8 +84,8 @@ describe('VoucherExchange', () => {
         walletCode   = new Cell({ exotic:true, bits: lib_prep.bits, refs:lib_prep.refs});
 
 
-        expLargeVoucher = BigInt(10 ** 8);
-        expSmallVoucher = BigInt(10 ** 7);
+        expLargeVoucher = toNano('100'); // 100m nots
+        expSmallVoucher = toNano('10');  // 10m nots
 
         msgPrices  = getMsgPrices(blockchain.config, 0);
 
@@ -453,7 +453,7 @@ describe('VoucherExchange', () => {
     describe('Jetton deposits', () => {
      it('should accept jettons own wallet', async () => {
          // From 110m to 149
-         const sendAmount = BigInt(getRandomInt(110, 149) * 1000000);
+         const sendAmount = BigInt(getRandomInt(110, 149)) * toNano('1');
          const dataBefore = await voucherExchange.getExchangeData();
          const res        = await jettonRoot.sendMint(deployer.getSender(), voucherExchange.address, sendAmount, deployer.address, deployer.address, depositPayload, toNano('1'));
          const receiveTx  = findTransactionRequired(res.transactions,{
@@ -834,7 +834,7 @@ describe('VoucherExchange', () => {
                await jettonRoot.getWalletAddress(newExchange.address)
            ));
            // Mint some
-           const mintAmount     = BigInt(getRandomInt(100, 200) * 1000000);
+           const mintAmount     = BigInt(getRandomInt(100, 200)) * toNano('1');
            await jettonRoot.sendMint(deployer.getSender(), newDeployer.address, mintAmount, deployer.address, deployer.address);
            expect(await newDepWallet.getJettonBalance()).toEqual(mintAmount);
        });

@@ -25,8 +25,9 @@ const int burn_fee = 100000000;
 
 const ZERO_COINS_SIZE = 4;
 
-const int 10m = 10000000;
-const int 100m = 100000000;
+const int NOT  = 1000000000; ;; 9 Decimals for 1 million clicks;
+const int 10m  = 10 * NOT;
+const int 100m = 100 * NOT;
 
 ;; const int gas::exchange_voucher = 100000000;
 ;; const int gas::deposit_jettons = 25000000;
