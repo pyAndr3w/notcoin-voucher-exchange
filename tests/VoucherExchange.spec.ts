@@ -653,7 +653,7 @@ describe('VoucherExchange', () => {
                const gasPrices = getGasPrices(oldConfig, 0);
                const newPrices: GasPrices = {
                    ...gasPrices,
-                   gas_price: gasPrices.gas_price * 3n
+                   gas_price: gasPrices.gas_price * 2n
                };
                blockchain.setConfig(setGasPrice(oldConfig, newPrices, 0));
                return blockchain.config;
