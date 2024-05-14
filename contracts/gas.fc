@@ -8,8 +8,8 @@ const MIN_STORAGE_DURATION = 5 * 365 * 24 * 3600; ;; 5 years
 const int MY_WORKCHAIN        = 0;
 const int ACCEPT_JETTON_GAS   = 6051;
 const int ACCEPT_NFT_GAS      = 11708;
-const int JETTON_TRANSFER_GAS = 10093;
-const int JETTON_RECEIVE_GAS  = 10648;
+const int JETTON_TRANSFER_GAS = 10065;
+const int JETTON_RECEIVE_GAS  = 10435;
 
 const int JETTON_TRANSFER_CELLS = 1;
 const int JETTON_TRANSFER_BITS  = 696;
