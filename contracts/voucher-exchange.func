@@ -25,9 +25,9 @@ const int burn_fee = 100000000;
 
 const ZERO_COINS_SIZE = 4;
 
-const int NOT  = 1000000000; ;; 9 Decimals for 1 million clicks;
-const int 10m  = 10 * NOT;
-const int 100m = 100 * NOT;
+const int NOT  = 1000000000; ;; 9 Decimals
+const int 10k  = 10000 * NOT; ;; 10m in-game points -> 10k NOT
+const int 100k = 100000 * NOT; ;; 100m in-game points -> 100k NOT
 
 ;; const int gas::exchange_voucher = 100000000;
 ;; const int gas::deposit_jettons = 25000000;
@@ -237,13 +237,19 @@ slice calc_nft_address(int idx) inline {
     int right_shard? = sender.slice_check_prefix(my_address().preload_bits(2 + 1 + 8 + 4)); ;; constructor + anycast + workchain + part of hash
 
     if (right_op? & right_addr? & right_range? & right_shard?) {
-      int reward = 10m;
-      if (nft_idx < 5000) {
-        if ((nft_idx == 2) | (nft_idx == 263) | (nft_idx == 324) | (nft_idx == 496) | ((nft_idx >= 1038) & (nft_idx <= 1042)) |
-            (nft_idx == 1717) | (nft_idx == 2211) | (nft_idx == 2317) | (nft_idx == 2747) | (nft_idx == 2876) | (nft_idx == 3222) |
-            (nft_idx == 3474) | (nft_idx == 3475) | (nft_idx == 3476) | (nft_idx == 3681) | (nft_idx == 3832) | (nft_idx == 3833) |
-            (nft_idx == 4030) | ((nft_idx >= 4986) & (nft_idx <= 4990)) | (nft_idx == 4995) | (nft_idx == 4996) | (nft_idx == 4997)) {
-            reward = 100m;
+      int reward = 10k;
+      if (nft_idx < 5413) {
+          {-
+            burned:
+            - 2, 324, 496, 969, 1039, 1040, 1041, 2317, 2747, 3474, 3475, 3476, 3681, 4030, 4987, 4996, 4998, 5395, 5397, 5405, 5406
+            alive:
+            - 263, 1038, 1042, 1717, 2211, 2876, 3222, 3832, 3833, 4986, 4988, 4989, 4990, 4995, 4997, 4999, 5396, 5412
+          -}
+        if ((nft_idx == 263) | (nft_idx == 1038) | (nft_idx == 1042) | (nft_idx == 1717) |
+            (nft_idx == 2211) | (nft_idx == 2876) | (nft_idx == 3222) | (nft_idx == 3832) |
+            (nft_idx == 3833) | ((nft_idx >= 4986) & (nft_idx <= 4990)) | (nft_idx == 4995) |
+            (nft_idx == 4997) | (nft_idx == 4999) | (nft_idx == 5396) | (nft_idx == 5412)) {
+            reward = 100k;
         }
       }
 
