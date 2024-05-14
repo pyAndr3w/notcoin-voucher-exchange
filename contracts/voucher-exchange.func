@@ -20,7 +20,6 @@ const int error::wrong_address = 103;
 ;; =============================================================================================
 
 const slice collection_address = "EQDmkj65Ab_m0aZaW8IpKw4kYqIgITw_HRstYEkVQ6NIYCyW"a;
-const slice burn_address = "UQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAJKZ"a;
 const int burn_fee = 100000000;
 
 const ZERO_COINS_SIZE = 4;
@@ -28,9 +27,6 @@ const ZERO_COINS_SIZE = 4;
 const int NOT  = 1000000000; ;; 9 Decimals
 const int 10k  = 10000 * NOT; ;; 10m in-game points -> 10k NOT
 const int 100k = 100000 * NOT; ;; 100m in-game points -> 100k NOT
-
-;; const int gas::exchange_voucher = 100000000;
-;; const int gas::deposit_jettons = 25000000;
 
 const int op::init = 0x5a6e0982;
 const int op::deposit_jetton = 0x6d8b6e80;
@@ -54,7 +50,6 @@ const int op::jetton_transfer = 0xf8a7ea5;
 ;; ========================================-Globals-============================================
 ;; =============================================================================================
 
-;; global int   fwd_fee;
 global slice sender;
 global int   query_id;
 
@@ -170,34 +165,12 @@ slice calc_nft_address(int idx) inline {
   send_raw_message(message.end_cell(), sendmode::CARRY_ALL_REMAINING_MESSAGE_VALUE | sendmode::BOUNCE_ON_ACTION_FAIL);
 }
 
-
-() burn_nft(slice nft_item) impure inline {
-    builder message = begin_cell()
-                 .store_msg_flags_bounceable()
-                 .store_slice(nft_item)
-                 .store_coins(burn_fee)
-                 .store_uint(MSG_BODY_IN_REF, MSG_ONLY_BODY_SIZE)
-                 .store_ref(begin_cell()
-                           .store_op(op::nft_transfer)
-                           .store_query_id(query_id)
-                           .store_slice(burn_address)
-                           .store_slice(addr_none)
-                           .store_maybe_ref(null())
-                           .store_varuint16(0)
-                           .store_false()
-                           .end_cell());
-  send_raw_message(message.end_cell(), sendmode::REGULAR);
-}
-
-
-
 ;; =============================================================================================
 ;; ==========================================-Main-=============================================
 ;; =============================================================================================
 
-() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+() recv_internal(int msg_value, cell in_msg_full, slice in_msg_body) impure {
   var (flags, sender_from_msg, fwd_fee_from_msg) = parse_message(in_msg_full);
-  ;; fwd_fee = get_original_fwd_fee(BASECHAIN, fwd_fee_from_msg);
   sender = sender_from_msg;
 
   if (flags.bounced?()) {
@@ -221,7 +194,7 @@ slice calc_nft_address(int idx) inline {
     int either_forward_payload = in_msg_body~load_bool();
     slice forward_payload = either_forward_payload ? in_msg_body~load_ref().begin_parse() : in_msg_body;
 
-    ifnot ((forward_payload.slice_bits() == (32 + 64)) & (msg_value >= exchange_voucher_fee()) & data::jetton_init?) { ;; TODO fix gas
+    ifnot ((forward_payload.slice_bits() == (32 + 64)) & (msg_value >= exchange_voucher_fee()) & data::jetton_init?) {
       send_nft(nft_sender, sender);
       return ();
     }
@@ -254,7 +227,6 @@ slice calc_nft_address(int idx) inline {
       }
 
       if (data::jetton_balance >= reward) {
-;;        burn_nft(sender); ;; TODO: need to burn?
         send_jettons(nft_sender, reward, data::jetton_wallet);
         data::jetton_balance -= reward;
         success = true;
@@ -283,7 +255,7 @@ slice calc_nft_address(int idx) inline {
     ifnot ((forward_payload.slice_bits() == (32)) &
         (msg_value >= accept_jettons_fee()) &
         (data::jetton_init?) &
-        (equal_slice_bits(sender, data::jetton_wallet))) { ;; TODO fix gas
+        (equal_slice_bits(sender, data::jetton_wallet))) {
       send_jettons(jetton_sender, jetton_value, sender);
       return ();
     }
@@ -362,7 +334,6 @@ slice calc_nft_address(int idx) inline {
 
   if (op == op::init) {
     throw_if(error::already_inited, data::jetton_init?);
-
     {- TEP-89
       provide_wallet_address#2c76b973 query_id:uint64 owner_address:MsgAddress
                                       include_address:Bool
