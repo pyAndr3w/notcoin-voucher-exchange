@@ -84,8 +84,8 @@ describe('VoucherExchange', () => {
         walletCode   = new Cell({ exotic:true, bits: lib_prep.bits, refs:lib_prep.refs});
 
 
-        expLargeVoucher = toNano('100'); // 100m nots
-        expSmallVoucher = toNano('10');  // 10m nots
+        expLargeVoucher = toNano('100000'); // 100m nots
+        expSmallVoucher = toNano('10000');  // 10m nots
 
         msgPrices  = getMsgPrices(blockchain.config, 0);
 
@@ -453,7 +453,7 @@ describe('VoucherExchange', () => {
     describe('Jetton deposits', () => {
      it('should accept jettons own wallet', async () => {
          // From 110m to 149
-         const sendAmount = BigInt(getRandomInt(110, 149)) * toNano('1');
+         const sendAmount = BigInt(getRandomInt(110000, 149000)) * toNano('1');
          const dataBefore = await voucherExchange.getExchangeData();
          const res        = await jettonRoot.sendMint(deployer.getSender(), voucherExchange.address, sendAmount, deployer.address, deployer.address, depositPayload, toNano('1'));
          const receiveTx  = findTransactionRequired(res.transactions,{
