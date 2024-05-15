@@ -1,4 +1,4 @@
-import { Address, TonClient4, beginCell } from '@ton/ton';
+import { Address, TonClient4, Cell, beginCell } from '@ton/ton';
 import { compile, NetworkProvider, sleep, UIProvider} from '@ton/blueprint';
 import { VoucherExchange } from '../wrappers/VoucherExchange';
 import { JettonMinter } from '../wrappers/JettonMinter';
@@ -12,6 +12,8 @@ export async function run(provider: NetworkProvider) {
     const walletCode = await compile('JettonWallet');
 
     let wallet_lib = beginCell().storeUint(2,8).storeBuffer(walletCode.hash()).endCell();
+
+    const walletLibCell = new Cell({ exotic:true, bits: wallet_lib.bits, refs: wallet_lib.refs});
 
     const notcoinRoot = provider.open(
         JettonMinter.createFromAddress(
@@ -46,17 +48,13 @@ export async function run(provider: NetworkProvider) {
         throw new TypeError('Minter account is not active');
     }
     const jettonData = await notcoinRoot.getJettonData();
-    if(!jettonData.walletCode.equals(wallet_lib)) {
+    if(!jettonData.walletCode.equals(walletLibCell)) {
         throw new TypeError('Minter wallet code doesn\'t match');
     }
-    /*
-    if(minterData.account.state.codeHash != minterCodeHash) {
-        throw new TypeError("Minter code hash doesn't match the code in project");
-    }
-    */
+    ui.write('Minter wallet code matches the one in project');
 
     for(let i = 0; i < addrList.length; i++) {
-        await sleep(1000);
+        await sleep(2000);
         const addr = addrList[i];
         const addrShard = (addr.hash[0] >> 4) & shardMask;
         ui.write(`Checking account: ${addr.toRawString()} shard: ${addrShard}`);
