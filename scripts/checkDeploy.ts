@@ -1,12 +1,22 @@
-import { Address, TonClient4 } from '@ton/ton';
+import { Address, TonClient4, beginCell } from '@ton/ton';
 import { compile, NetworkProvider, sleep, UIProvider} from '@ton/blueprint';
 import { VoucherExchange } from '../wrappers/VoucherExchange';
+import { JettonMinter } from '../wrappers/JettonMinter';
 
 export async function run(provider: NetworkProvider) {
     const api = provider.api() as TonClient4;
     const ui  = provider.ui();
 
-    const codeHash = (await compile('VoucherExchange')).hash().toString('base64');
+    const codeHash       = (await compile('VoucherExchange')).hash().toString('base64');
+    const minterCodeHash = (await compile('JettonMinter')).hash().toString('base64');
+    const walletCode = await compile('JettonWallet');
+
+    let wallet_lib = beginCell().storeUint(2,8).storeBuffer(walletCode.hash()).endCell();
+
+    const notcoinRoot = provider.open(
+        JettonMinter.createFromAddress(
+            Address.parse("EQAvlWFDxGF2lXm67y4yzC17wYKD9A0guwPkMs1gOsM__NOT")
+    ));
 
     const addrList = [
         '0:0F65AB9654F51C9B6854253F67DFAA71CE7121978EAB127D5BCC15CDD1163FCA',
@@ -29,6 +39,21 @@ export async function run(provider: NetworkProvider) {
 
     const lastBlock = await api.getLastBlock();
     const shardMask = (1 << 4) - 1;
+
+    const minterData = await api.getAccountLite(lastBlock.last.seqno, notcoinRoot.address);
+
+    if(minterData.account.state.type != 'active') {
+        throw new TypeError('Minter account is not active');
+    }
+    const jettonData = await notcoinRoot.getJettonData();
+    if(!jettonData.walletCode.equals(wallet_lib)) {
+        throw new TypeError('Minter wallet code doesn\'t match');
+    }
+    /*
+    if(minterData.account.state.codeHash != minterCodeHash) {
+        throw new TypeError("Minter code hash doesn't match the code in project");
+    }
+    */
 
     for(let i = 0; i < addrList.length; i++) {
         await sleep(1000);
@@ -54,6 +79,13 @@ export async function run(provider: NetworkProvider) {
             throw new TypeError(`Account ${addr.toRawString()} from shard ${addrShard} has wallet from shard ${walletShard}`);
         }
         ui.write('Wallet shard match!');
+        await sleep(1000);
+        const addrFromMinter = await notcoinRoot.getWalletAddress(addr);
+
+        if(!addrFromMinter.equals(data.wallet)) {
+            throw new TypeError(`Account ${addr.toRawString()} doesn't match address from minter`);
+        }
+        ui.write('Wallet address match');
         ui.write('OK');
     }
 }
