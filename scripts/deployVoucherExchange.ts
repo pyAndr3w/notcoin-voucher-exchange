@@ -32,7 +32,9 @@ export async function run(provider: NetworkProvider) {
     const notcoinRoot = Address.parse("EQAvlWFDxGF2lXm67y4yzC17wYKD9A0guwPkMs1gOsM__NOT");
 
     const selectedShard = Number(await ui.input('shard for deploy (0-15)'))
-    const admin = Address.parse(await ui.input('admin address'));
+    const admin = provider.sender().address ?? Address.parse(await ui.input('admin address'));
+
+    ui.write('admin is ' + admin.toString())
 
     const voucherExchange = provider.open(getVoucherExchangeByShard(admin, notcoinRoot, selectedShard));
 
